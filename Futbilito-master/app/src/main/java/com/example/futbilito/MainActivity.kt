@@ -94,11 +94,14 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             }
 
             // Ajuste en el límite superior para permitir que la pelota llegue a la portería superior
-            if (_y < -200f) { // Se ajusta para permitir que la pelota llegue a la portería superior
-                _y = -200f
+            if (_y < -650f) { // Permitimos que suba más
+                _y = -650f
                 velocityY = -velocityY
-            } else if (_y > 990f) {
-                _y = 990f
+
+
+
+        } else if (_y > 650f) {
+                _y = 650f
                 velocityY = -velocityY
             }
         }
@@ -129,7 +132,7 @@ fun FutbolitoGame(
     Box(modifier = Modifier.fillMaxSize()) {
         // Imagen de la cancha
         Image(
-            painter = painterResource(id = R.drawable.cancha_con_marcador),
+            painter = painterResource(id = R.drawable.cancha),
             contentDescription = "Cancha de fútbol",
             modifier = Modifier.fillMaxSize()
         )
@@ -147,12 +150,12 @@ fun FutbolitoGame(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("LOCAL", fontSize = 20.sp, color = Color.Yellow)
-                    Text("$scoreLocal", fontSize = 70.sp, color = Color.Yellow)
+                    Text("LOCAL", fontSize = 20.sp, color = Color.Black)
+                    Text("$scoreLocal", fontSize = 70.sp, color = Color.Black)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("VISITANTE", fontSize = 18.sp, color = Color.Yellow)
-                    Text("$scoreVisitante", fontSize = 70.sp, color = Color.Yellow)
+                    Text("VISITANTE", fontSize = 18.sp, color = Color.Black)
+                    Text("$scoreVisitante", fontSize = 70.sp, color = Color.Black)
                 }
             }
         }
@@ -166,8 +169,8 @@ fun FutbolitoGame(
             val goalHeight = 40.dp.toPx()
 
             // Ajuste de la portería local más abajo
-            val goalOffsetTop = 400.dp.toPx()  // Movemos la portería superior más abajo
-            val goalOffsetBottom = 100.dp.toPx()
+            val goalOffsetTop = 200.dp.toPx()  // Movemos la portería superior más abajo
+            val goalOffsetBottom = 200.dp.toPx()
 
             val goalXStart = (size.width - goalWidth) / 2
             val goalXEnd = goalXStart + goalWidth
