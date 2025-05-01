@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
         setContent {
-            FutbolitoGame(_x, _y, scoreLocal, scoreVisitante,
+            futbolito(_x, _y, scoreLocal, scoreVisitante,
                 onLocalGoal = {
                     scoreLocal++
                     Log.d("GOAL", "⚽ Gol del equipo LOCAL! Marcador: $scoreLocal - $scoreVisitante")
@@ -118,7 +118,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 }
 
 @Composable
-fun FutbolitoGame(
+fun futbolito(
     x: Float,
     y: Float,
     scoreLocal: Int,
@@ -177,7 +177,7 @@ fun FutbolitoGame(
 
             // Dibujar las porterías
             drawRect(Color.Black, topLeft = Offset(goalXStart, goalOffsetTop), size = Size(goalWidth, goalHeight))
-            drawRect(Color.Black, topLeft = Offset(goalXStart, size.height - goalHeight - goalOffsetBottom), size = Size(goalWidth, goalHeight))
+            drawRect(Color.Green, topLeft = Offset(goalXStart, size.height - goalHeight - goalOffsetBottom), size = Size(goalWidth, goalHeight))
 
             // Posición de la pelota
             val ballPosition = Offset(size.width / 2 + x, size.height / 2 + y)
