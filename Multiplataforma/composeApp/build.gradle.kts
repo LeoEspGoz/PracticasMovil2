@@ -10,6 +10,8 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.10" // 👈 necesario para @Serializable
+
 }
 
 kotlin {
@@ -48,6 +50,10 @@ kotlin {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
+
+            implementation("io.ktor:ktor-client-okhttp:3.1.3")
+            implementation("io.coil-kt:coil-compose:2.3.0")
+
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -58,6 +64,18 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+
+            implementation("io.ktor:ktor-client-core:3.1.3")
+            implementation("io.ktor:ktor-client-content-negotiation:3.1.3")
+            implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.3")
+
+            implementation("media.kamel:kamel-image-default:1.0.5")
+
+           // Serialización JSON
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
+
+// Carga de imágenes multiplataforma (Kamel)
+            implementation("media.kamel:kamel-image-default:1.0.5")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -65,6 +83,8 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+
+            implementation("io.ktor:ktor-client-cio:3.1.3")
         }
     }
 }
