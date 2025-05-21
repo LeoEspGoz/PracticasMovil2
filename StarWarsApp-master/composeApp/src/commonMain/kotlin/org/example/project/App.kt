@@ -4,100 +4,73 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.example.project.model.Person
 import org.example.project.repository.StarWarsRepository
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.layout.ContentScale
 import io.kamel.image.asyncPainterResource
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.material3.CardDefaults
-import androidx.compose.ui.draw.shadow
 import io.kamel.core.getOrNull
 import io.kamel.core.isLoading
 import io.kamel.core.isSuccess
-import org.example.project.ui.StarWarsTheme
-import org.example.project.util.ImageMapper // ✅ IMPORTANTE
+import androidx.compose.ui.layout.ContentScale
 
 @Composable
 fun App() {
-    StarWarsTheme {
-        PersonListScreen()
-    }
+    PersonListScreen()
 }
 
 @Composable
 fun PersonListScreen() {
-    val scope = rememberCoroutineScope()
+    var isLoading by remember { mutableStateOf(true) }
     var people by remember { mutableStateOf<List<Person>>(emptyList()) }
-    var currentPage by remember { mutableStateOf(1) }
-    var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var hasMore by remember { mutableStateOf(true) }
 
-    // Esto evita actualizaciones después de que el composable se destruya
-    var isActive by remember { mutableStateOf(true) }
-    DisposableEffect(Unit) {
-        onDispose { isActive = false }
-    }
-
-    fun loadNextPage() {
-        if (isLoading || !hasMore) return
-        isLoading = true
-
-        scope.launch {
-            try {
-                val response = StarWarsRepository.getPeople(currentPage)
-                if (isActive) {
-                    people += response.results
-                    currentPage++
-                    hasMore = response.info.next != null
-                }
-            } catch (e: Exception) {
-                if (isActive) {
-                    errorMessage = "Error al cargar página $currentPage: ${e.message}"
-                }
-            } finally {
-                if (isActive) isLoading = false
-            }
-        }
-    }
-
-    // Cargar la primera página
     LaunchedEffect(Unit) {
-        loadNextPage()
+        try {
+            people = StarWarsRepository.getAllPeople()
+        } catch (e: Exception) {
+            errorMessage = "Error: ${e.message}"
+        } finally {
+            isLoading = false
+        }
     }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        if (errorMessage != null) {
-            Text("Error: $errorMessage", color = Color.Red)
-        }
-
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.weight(1f)
-        ) {
-            itemsIndexed(people) { index, person ->
-                PersonCard(person)
-
-                // Cargar más cuando se acerque al final
-                if (index == people.lastIndex - 5 && !isLoading && hasMore) {
-                    loadNextPage()
-                }
+    when {
+        isLoading -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
         }
-
-        if (isLoading) {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+        errorMessage != null -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = errorMessage ?: "Error desconocido", color = Color.Red)
+            }
+        }
+        else -> {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(people) { person ->
+                    PersonCard(person)
+                }
             }
         }
     }
@@ -105,7 +78,23 @@ fun PersonListScreen() {
 
 @Composable
 fun PersonCard(person: Person) {
-    val imageResource = asyncPainterResource(person.image)
+    val imageResource = asyncPainterResource(data = person.image)
+
+    var episodeNames by remember { mutableStateOf<List<String>>(emptyList()) }
+    var episodeLoading by remember { mutableStateOf(true) }
+    var episodeError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(person.episode) {
+        episodeLoading = true
+        episodeError = null
+        try {
+            episodeNames = loadEpisodesNames(person.episode)
+        } catch (e: Exception) {
+            episodeError = "No se pudieron cargar episodios"
+        } finally {
+            episodeLoading = false
+        }
+    }
 
     Card(
         modifier = Modifier
@@ -114,9 +103,14 @@ fun PersonCard(person: Person) {
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
-        )
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Row(Modifier.fillMaxSize().padding(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp)
+        ) {
             Box(
                 modifier = Modifier
                     .width(110.dp)
@@ -124,24 +118,21 @@ fun PersonCard(person: Person) {
                 contentAlignment = Alignment.Center
             ) {
                 when {
+                    imageResource.isLoading -> CircularProgressIndicator(modifier = Modifier.size(30.dp))
                     imageResource.isSuccess -> {
                         val painter = imageResource.getOrNull()
                         if (painter != null) {
                             Image(
                                 painter = painter,
                                 contentDescription = person.name,
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
-                            Text("Imagen nula", color = Color.Red)
+                            Text("No se pudo cargar imagen", color = Color.Red)
                         }
                     }
-                    imageResource.isLoading -> {
-                        CircularProgressIndicator(modifier = Modifier.size(30.dp))
-                    }
-                    else -> {
-                        Text("Sin imagen", color = Color.Red)
-                    }
+                    else -> Text("No se pudo cargar imagen", color = Color.Red)
                 }
             }
 
@@ -151,11 +142,64 @@ fun PersonCard(person: Person) {
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxHeight()
             ) {
-                Text(text = person.name, fontSize = 20.sp, color = Color(0xFF00FFAA))
-                Text(text = "Género: ${person.gender}")
-                Text(text = "Especie: ${person.species}")
-                Text(text = "Origen: ${person.origin.name}")
+                Text(
+                    text = person.name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFFD700) // Dorado
+                )
+                Text(
+                    text = "Estado: ${person.status}",
+                    fontSize = 14.sp,
+                    color = when (person.status.lowercase()) {
+                        "alive" -> Color.Green
+                        "dead" -> Color.Red
+                        else -> Color.Gray
+                    }
+                )
+                Text(
+                    text = "Especie: ${person.species}",
+                    fontSize = 14.sp,
+                    color = Color(0xFF00BFFF) // Azul cyan
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "Origen: ${person.origin.name}",
+                    fontSize = 14.sp,
+                    color = Color(0xFF8B4513) // Marrón para diferenciar
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (episodeLoading) {
+                    Text("Cargando episodios...", fontSize = 12.sp, color = Color.Gray)
+                } else if (episodeError != null) {
+                    Text(episodeError ?: "", fontSize = 12.sp, color = Color.Red)
+                } else {
+                    Text(
+                        text = "Episodios:\n${episodeNames.joinToString(", ")}",
+                        fontSize = 12.sp,
+                        color = Color.DarkGray,
+                        maxLines = 3
+                    )
+                }
             }
         }
     }
+}
+
+suspend fun loadEpisodesNames(episodeUrls: List<String>): List<String> = coroutineScope {
+    episodeUrls.mapNotNull { episodeUrl ->
+        val id = episodeUrl.substringAfterLast("/").toIntOrNull()
+        if (id != null) {
+            async {
+                try {
+                    val episode = StarWarsRepository.getEpisode(episodeUrl)
+                    episode.name
+                } catch (e: Exception) {
+                    null
+                }
+            }
+        } else null
+    }.awaitAll().filterNotNull()
 }

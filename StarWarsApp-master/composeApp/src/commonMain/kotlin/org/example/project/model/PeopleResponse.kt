@@ -26,7 +26,8 @@ data class Person(
     val gender: String,
     val origin: Origin,
     val location: Location,
-    val image: String
+    val image: String,
+    val episode: List<String> // Aquí están las URLs de los episodios
 )
 
 @Serializable
