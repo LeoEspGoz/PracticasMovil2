@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,50 +34,70 @@ fun App() {
     }
 }
 
-
 @Composable
 fun PersonListScreen() {
     val scope = rememberCoroutineScope()
-    var isLoading by remember { mutableStateOf(true) }
     var people by remember { mutableStateOf<List<Person>>(emptyList()) }
+    var currentPage by remember { mutableStateOf(1) }
+    var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var hasMore by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
+    // Esto evita actualizaciones después de que el composable se destruya
+    var isActive by remember { mutableStateOf(true) }
+    DisposableEffect(Unit) {
+        onDispose { isActive = false }
+    }
+
+    fun loadNextPage() {
+        if (isLoading || !hasMore) return
+        isLoading = true
+
         scope.launch {
             try {
-                val response = StarWarsRepository.getPeople()
-                people = response.results
+                val response = StarWarsRepository.getPeople(currentPage)
+                if (isActive) {
+                    people += response.results
+                    currentPage++
+                    hasMore = response.info.next != null
+                }
             } catch (e: Exception) {
-                errorMessage = "Error: ${e.message}"
+                if (isActive) {
+                    errorMessage = "Error al cargar página $currentPage: ${e.message}"
+                }
             } finally {
-                isLoading = false
+                if (isActive) isLoading = false
             }
         }
     }
 
-    when {
-        isLoading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+    // Cargar la primera página
+    LaunchedEffect(Unit) {
+        loadNextPage()
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        if (errorMessage != null) {
+            Text("Error: $errorMessage", color = Color.Red)
         }
 
-        errorMessage != null -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Error: $errorMessage", color = Color.Red)
-            }
-        }
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            itemsIndexed(people) { index, person ->
+                PersonCard(person)
 
-        else -> {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(people) { person ->
-                    PersonCard(person)
+                // Cargar más cuando se acerque al final
+                if (index == people.lastIndex - 5 && !isLoading && hasMore) {
+                    loadNextPage()
                 }
+            }
+        }
+
+        if (isLoading) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
         }
     }
@@ -84,25 +105,18 @@ fun PersonListScreen() {
 
 @Composable
 fun PersonCard(person: Person) {
-    val imageUrl = remember { ImageMapper.getImageUrl(person.uid) }
-    val imageResource = imageUrl?.let { asyncPainterResource(data = it) }
+    val imageResource = asyncPainterResource(person.image)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
-            .shadow(10.dp, shape = MaterialTheme.shapes.medium),
+            .height(180.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(10.dp)
-        ) {
+        Row(Modifier.fillMaxSize().padding(10.dp)) {
             Box(
                 modifier = Modifier
                     .width(110.dp)
@@ -110,30 +124,23 @@ fun PersonCard(person: Person) {
                 contentAlignment = Alignment.Center
             ) {
                 when {
-                    imageResource == null -> {
-                        Text("Sin imagen", color = Color.Red)
-                    }
-
-                    imageResource.isLoading -> {
-                        CircularProgressIndicator(modifier = Modifier.size(30.dp))
-                    }
-
                     imageResource.isSuccess -> {
                         val painter = imageResource.getOrNull()
                         if (painter != null) {
                             Image(
                                 painter = painter,
                                 contentDescription = person.name,
-                                contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
                             Text("Imagen nula", color = Color.Red)
                         }
                     }
-
+                    imageResource.isLoading -> {
+                        CircularProgressIndicator(modifier = Modifier.size(30.dp))
+                    }
                     else -> {
-                        Text("No se pudo cargar", color = Color.Red)
+                        Text("Sin imagen", color = Color.Red)
                     }
                 }
             }
@@ -144,36 +151,11 @@ fun PersonCard(person: Person) {
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxHeight()
             ) {
-                Text(
-                    text = person.name,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFFD700) // Dorado
-                )
-
-                var detail by remember { mutableStateOf<String?>(null) }
-
-                LaunchedEffect(person.uid) {
-                    try {
-                        val response = StarWarsRepository.getPersonDetail(person.uid)
-                        val p = response.result.properties
-                        detail = "Altura: ${p.height} cm\nPeso: ${p.mass} kg\nColor de ojos: ${p.eye_color}\nGénero: ${p.gender}"
-                    } catch (e: Exception) {
-                        detail = "Detalles no disponibles"
-                    }
-                }
-
-                detail?.let {
-                    Text(
-                        text = it,
-                        fontSize = 14.sp,
-                        color = Color(0xFF00BFFF) // Azul cyan
-                    )
-                }
+                Text(text = person.name, fontSize = 20.sp, color = Color(0xFF00FFAA))
+                Text(text = "Género: ${person.gender}")
+                Text(text = "Especie: ${person.species}")
+                Text(text = "Origen: ${person.origin.name}")
             }
         }
     }
 }
-
-
-

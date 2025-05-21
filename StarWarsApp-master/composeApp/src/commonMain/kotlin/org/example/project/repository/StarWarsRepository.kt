@@ -10,8 +10,6 @@ import kotlinx.serialization.json.Json
 import org.example.project.model.PersonDetailResponse
 
 object StarWarsRepository {
-
-    // Cliente HTTP multiplataforma
     private val client = HttpClient {
         install(ContentNegotiation) {
             json(Json {
@@ -22,14 +20,7 @@ object StarWarsRepository {
         }
     }
 
-    // Función suspendida para obtener los personajes
-    suspend fun getPeople(): PeopleResponse {
-        val response = client.get("https://www.swapi.tech/api/people").body<PeopleResponse>()
-        return response
-    }
-
-    // Nueva función suspend para obtener detalles
-    suspend fun getPersonDetail(id: String): PersonDetailResponse {
-        return client.get("https://www.swapi.tech/api/people/$id").body()
+    suspend fun getPeople(page: Int = 1): PeopleResponse {
+        return client.get("https://rickandmortyapi.com/api/character?page=$page").body()
     }
 }
